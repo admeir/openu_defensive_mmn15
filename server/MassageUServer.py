@@ -6,9 +6,13 @@ from server.Server import Server
 
 import protocol.protocol_boost_dll.Debug.MessageUProtocol as MessageUProtocol
 
-# b = list(b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0f\x00\x00\x00h\xceM\x018\xfdL\x01\x00\x00\x00\x00\xe8\x03\x00\x00\x9f\x01\x00\x00lkasfdl;kas;f                                                                                                                                                                                                                                                  0\x81\x9d0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x01\x05\x00\x03\x81\x8b\x000\x81\x87\x02\x81\x81\x00\xe1E\xdf>\xb1\x84Llp\xc4\xdc\x1d\x91 \xf9s\xbd\xb8\x92\xe8\xcb\x8f;g\xee\xa6`\x97\xa9\xce\x89d|\xb8\xaaC\xfc\x8d\\\x14\x84\x99.\x86\xabS/\x8b\x03\x14\x8dy\x1b\xe6\xb2i\\n@\x82w\x97\x97:@@\xbdMI\xb5N\xa3s\xa7\xbb\x87@\x08\x8fn\xe9w9'\xb6\xed\x08\xbe\x87\x83.1\xe5U;.\xab\x08\xbdR\xe7\xc4C\xb4\x92\xbb\xd7y\xb4;\x16\x17\xb01\xe3\x11\xec\x98k>.\xac\xb9RXA~7\x02\x01\x11")
-# m = MessageUProtocol.MUPReqMessageWrapper(b)
+b = list(b'01000000000000000000000000000000\x01\x00\x00\x00\xeb\x03\x00\x00,\x00\x00\x0001000000000000000000000000000000\x01\xcd\xcd\xcd\x00\x00\x00\x00\xcd\xcd\xcd\xcd')
+m = MessageUProtocol.MUPReqMessageWrapper(b)
 #
+# print(m.send_message_payload.id.id)
+# print(m.send_message_payload.message_type)
+# print("".join([f"{x:0{2}x}" for x in m.send_message_payload.message_content]))
+# print("--------------------------------")
 # # print("id = ", "".join(m.msg.header.id.id))
 # print("version = ", m.msg.header.version)
 # print("code = ", m.code)
@@ -46,6 +50,13 @@ sql_db = SQL()
 # # pub = pub
 # print()
 # MessageUProtocol.clientPublicKey(z_pref + pub)
+#
+message_id = sql_db.add_message(m.msg.header.id.id,
+                                     m.send_message_payload.id.id,
+                                     m.send_message_payload.message_type,
+                                     "".join([f"{x:0{2}x}" for x in m.send_message_payload.message_content]))
+
+
 
 class REQ_STATUS(enum.Enum):
     recv = 0
@@ -112,6 +123,8 @@ class MessageUClient:
                 self.request_status = REQ_STATUS.process
             elif MessageUProtocol.MUP_REQ_MESSAGE_COD_TYPE_GET_PUBLIC_KEY == MessageUProtocol.MUP_REQ_MESSAGE_COD_CODE(self.request.code):
                 self.request_status = REQ_STATUS.process
+            elif MessageUProtocol.MUP_REQ_MESSAGE_COD_TYPE_SEND_MESSAGE == MessageUProtocol.MUP_REQ_MESSAGE_COD_CODE(self.request.code):
+                self.request_status = REQ_STATUS.process
             else:
                 self.request_status = REQ_STATUS.bad
         except MemoryError:
@@ -134,6 +147,8 @@ class MessageUClient:
         elif MessageUProtocol.MUP_REQ_MESSAGE_COD_TYPE_GET_CLIENT_LIST == MessageUProtocol.MUP_REQ_MESSAGE_COD_CODE(self.request.code):
             self.request_status = REQ_STATUS.answer
         elif MessageUProtocol.MUP_REQ_MESSAGE_COD_TYPE_GET_PUBLIC_KEY == MessageUProtocol.MUP_REQ_MESSAGE_COD_CODE(self.request.code):
+            self.request_status = REQ_STATUS.answer
+        elif MessageUProtocol.MUP_REQ_MESSAGE_COD_TYPE_SEND_MESSAGE == MessageUProtocol.MUP_REQ_MESSAGE_COD_CODE(self.request.code):
             self.request_status = REQ_STATUS.answer
         else:
             self.request_status = REQ_STATUS.bad
@@ -172,6 +187,20 @@ class MessageUClient:
                     self.request_status = REQ_STATUS.bad
             except UnicodeDecodeError:
                 self.request_status = REQ_STATUS.bad
+        elif MessageUProtocol.MUP_REQ_MESSAGE_COD_TYPE_SEND_MESSAGE == MessageUProtocol.MUP_REQ_MESSAGE_COD_CODE(self.request.code):
+            self.payload = MessageUProtocol.MUPRespMessageSentPayload()
+            self.response.code = MessageUProtocol.MUP_RESP_MESSAGE_CODE_MESSAGE_SENT
+            self.response.version = 2
+            message_id = self.sql_db.add_message(self.request.msg.header.id.id,
+                                                 self.request.send_message_payload.id.id,
+                                                 self.request.send_message_payload.message_type,
+                                                 "".join([f"{x:0{2}x}" for x in self.request.send_message_payload.message_content]))
+            self.payload.id = self.request.send_message_payload.id
+            self.payload.message_id = message_id
+            if message_id is None:
+                self.request_status = REQ_STATUS.bad
+            else:
+                self.request_status = REQ_STATUS.send
         else:
             self.request_status = REQ_STATUS.bad
 
@@ -194,7 +223,7 @@ class MessageUServer(Server):
         self.last_client_id = self.update_last_client_id()
 
     def update_last_client_id(self):
-        last_id = self.sql_db.get_last_id()
+        last_id = self.sql_db.get_last_id('clients')
         if last_id == None:
             return MessageUProtocol.clientId().zerro_id
         else:

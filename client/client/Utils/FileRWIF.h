@@ -14,16 +14,23 @@ typedef enum {
 class FileRWIF
 {
 public:
+    FileRWIF() {};
     FileRWIF(const char* path);
     ~FileRWIF();
-
+    
     bool exists();
     bool parseSucceed();
+    FILE_ACCESS_STATUS openFile();
+    std::string getData() {
+        if (FILE_ACCESS_STATUS_SUCCESS != readFile()) {
+            std::cout << "canot open file " << file_path << std::endl;
+        }
+        return readen_data;
+    }
     
 protected:
     FILE_ACCESS_STATUS readFile();
     FILE_ACCESS_STATUS writeFile(std::string data);
-    FILE_ACCESS_STATUS openFile();
     void closeFile();
     std::fstream file_ptr;
     std::string file_path;

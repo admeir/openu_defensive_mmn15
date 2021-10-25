@@ -20,7 +20,7 @@ private:
 	RSAPublicWrapper(const RSAPublicWrapper& rsapublic);
 	RSAPublicWrapper& operator=(const RSAPublicWrapper& rsapublic);
 public:
-//	RSAPublicWrapper() {};
+	RSAPublicWrapper() {};
 	RSAPublicWrapper(const char* key, unsigned int length);
 	RSAPublicWrapper(const std::string& key);
 	~RSAPublicWrapper();

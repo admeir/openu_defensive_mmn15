@@ -141,6 +141,14 @@ MUPReqMessageWrapper::MUPReqMessageWrapper(list py_buffer) {
 				*(((unsigned char*)&send_message_payload) + i) = extract<unsigned char>(py_buffer[sizeof(msg.header) + i]);
 			}
 			msg.payload = (MUPPayload)&send_message_payload;
+			printf("\tid: %s\n", send_message_payload.id.id);
+			printf("\tmeassage type: %d\n", send_message_payload.message_type);
+			printf("\tcontent_size: %u\n", send_message_payload.content_size);
+			if (send_message_payload.content_size) {
+				printf("\tpublic: %s\n", send_message_payload.message_content);
+			}
+			
+			fflush(stdout);
 			break;
 		default:
 			printf("MUPReqMessageWrapper Error!!! bad payload type \n");
@@ -158,6 +166,7 @@ int MUPReqMessageWrapper::code() {
 int identity_req_(MUP_REQ_MESSAGE_COD_CODE x) { return (int)x; };
 int identity_resp_(MUP_RESP_MESSAGE_CODE x) { return (int)x; };
 int identity_mgs_err_(MUP_REQ_MESSAGE_WRAPPER_ERR_CODE x) { return (int)x; };
+int identity_mgs_(MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE x) { return (int)x; };
 
 BOOST_PYTHON_MODULE(MessageUProtocol)
 {
@@ -259,6 +268,7 @@ BOOST_PYTHON_MODULE(MessageUProtocol)
 		.value("MUP_REQ_MESSAGE_COD_TYPE_GET_CLIENT_LIST", MUP_REQ_MESSAGE_COD_TYPE_GET_CLIENT_LIST)
 		.value("MUP_REQ_MESSAGE_COD_TYPE_GET_PUBLIC_KEY", MUP_REQ_MESSAGE_COD_TYPE_GET_PUBLIC_KEY)
 		.value("MUP_REQ_MESSAGE_COD_TYPE_SEND_MESSAGE", MUP_REQ_MESSAGE_COD_TYPE_SEND_MESSAGE)
+		.value("MUP_REQ_MESSAGE_COD_TYPE_GET_MESSAGES", MUP_REQ_MESSAGE_COD_TYPE_GET_MESSAGES)
 		.export_values()
 		;
 	def("identity", identity_req_);
@@ -317,12 +327,12 @@ BOOST_PYTHON_MODULE(MessageUProtocol)
 			constructor(self);
 		})
 		.add_property("id", &MUPReqSendMessagePayload::id)
-		/*.add_property("message_type", +[](MUPReqSendMessagePayload& a) {
-			return (MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE)(a.message_type & 0xf);
-		})*/
+		.add_property("message_type", +[](MUPReqSendMessagePayload &self) {
+			return self.message_type;
+		})
 		.add_property("content_size", &MUPReqSendMessagePayload::content_size)
 		.add_property("message_content", +[](MUPReqSendMessagePayload &self) {
-			return  wrap_char_arr_as_str(self.message_content, sizeof(self.content_size));
+			return  wrap_byte_arr(self.message_content, self.content_size);
 		})
 		;
 
@@ -346,9 +356,19 @@ BOOST_PYTHON_MODULE(MessageUProtocol)
 		.value("MUP_RESP_MESSAGE_CODE_CLIENTS_LIST", MUP_RESP_MESSAGE_CODE_CLIENTS_LIST)
 		.value("MUP_RESP_MESSAGE_CODE_GET_PUBLIC_KEY", MUP_RESP_MESSAGE_CODE_GET_PUBLIC_KEY)
 		.value("MUP_RESP_MESSAGE_CODE_MESSAGE_SENT", MUP_RESP_MESSAGE_CODE_MESSAGE_SENT)
+		.value("MUP_RESP_MESSAGE_COD_TYPE_GET_MESSAGES", MUP_RESP_MESSAGE_COD_TYPE_GET_MESSAGES)
 		.export_values()
 		;
 	def("identity", identity_resp_);
+
+	enum_<MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE>("MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE")
+		.value("MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_GET_SYMETRIC_KEY", MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_GET_SYMETRIC_KEY)
+		.value("MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_SEND_SYMETRIC_KEY", MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_SEND_SYMETRIC_KEY)
+		.value("MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_SEND_MESSAGE_TEXT", MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_SEND_MESSAGE_TEXT)
+		.value("MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_SEND_FILE", MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_SEND_FILE)
+		.export_values()
+		;
+	def("identity", identity_mgs_);
 
 	class_<MUPRespHeader>("MUPRespHeader", no_init)
 		.def("__init__", +[](object self) {
@@ -429,6 +449,9 @@ BOOST_PYTHON_MODULE(MessageUProtocol)
 		})
 		.add_property("id", &MUPRespMessageSentPayload::id, &MUPRespMessageSentPayload::id)
 		.add_property("message_id", &MUPRespMessageSentPayload::message_id, &MUPRespMessageSentPayload::message_id)
+		.add_property("bytes_arr", +[](MUPRespMessageSentPayload& self) {
+			return wrap_byte_arr((char*)&self, sizeof(self));
+		})
 		;
 
 	class_<MUPRespGotMessagePayload, boost::shared_ptr<MUPRespGotMessagePayload>>("MUPRespGotMessagePayload", no_init)

@@ -33,23 +33,37 @@ private:
     OPERATION_STATUS reciveRespHeader(boost::asio::streambuf &buf);
     OPERATION_STATUS reciveRespPayload(boost::asio::streambuf &buf, char* payload);
     OPERATION_STATUS sendRegistrationReq();
-    OPERATION_STATUS recvRegistrationResp(char *resp_payload);
+    OPERATION_STATUS recvResp(char *resp_payload);
     OPERATION_STATUS regitrete();
     OPERATION_STATUS recvClientsListResp();
     OPERATION_STATUS getClientsList();
     OPERATION_STATUS getClientsPublicKey(clientId &id, clientPublicKey *publicKey);
     OPERATION_STATUS getClientsPublicKey();
+    OPERATION_STATUS sendMsgClient(MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE type);
+    OPERATION_STATUS saveFriendPubKey(clientId& id,  clientPublicKey& publicKey);
+    OPERATION_STATUS getFriendPubKey(clientId& id, clientPublicKey* publicKey);
+    std::string encryptedAESKey(std::string& id_str);
+    std::string encryptedMessage(std::string& id_str, std::string& message);
+    std::string decryptedMessage(std::string& id_str, std::string& message);
+    OPERATION_STATUS saveFriendAesKey(clientId& id, std::string &aesKey);
+    OPERATION_STATUS getFriendAesKey(clientId& id, std::string* aesKey);
+    OPERATION_STATUS getMsgsClient();
+
     bool got_exit = false;
     bool me_info_initilaized = false;
     unsigned char aes_key[AESWrapper::DEFAULT_KEYLENGTH];
-    
+        
     uint8_t version = 1;
     MeInfoFileRWIF me_info;
     AESWrapper aes_wrapper;
+    //RSAPublicWrapper rsapub_wrapper;
+    RSAPrivateWrapper rsapriv_wrapper;
     std::string pub_key;
     std::string prv_key;
     std::string base64key;
     MUPReqMessage req;
     MUPRespMessage resp;
+    std::map<char *, clientPublicKey> frind_pub_keys;
+    std::map<char *, std::string> frind_aes_keys;
 };
 
