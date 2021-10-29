@@ -37,14 +37,18 @@ class Server:
 
     def recv(self, con):
         try:
-            return con.recv(Server.BUFFER_SIZE)
-
+            d = con.recv(Server.BUFFER_SIZE)
+            while len(d) == Server.BUFFER_SIZE:
+                d += con.recv(Server.BUFFER_SIZE)
+            print(d)
+            return d
         except MemoryError:
             pass
         except ConnectionResetError:
             pass
         except ConnectionAbortedError:
             pass
+        return ""
 
 
 

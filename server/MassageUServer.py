@@ -64,7 +64,8 @@ class MessageUClient:
     def recv(self):
         try:
             data = self.connection.recv(Server.BUFFER_SIZE)
-            print(data)
+            while len(data) == Server.BUFFER_SIZE:
+                data += self.connection.recv(Server.BUFFER_SIZE)
             if len(data) <= 0:
                 print("client disconnected")
                 self.connection_status = CONNECTION_STATUS.end
@@ -225,7 +226,6 @@ class MessageUServer(Server):
                 con.close()
                 return ''
             if MessageUProtocol.MUP_REQ_MESSAGE_COD_TYPE_REGISTRETION == MessageUProtocol.MUP_REQ_MESSAGE_COD_CODE(mup_req.code):
-                print(list(mup_req.registration_payload.name.bytes_arr))
                 if self.sql_db.name_exists(mup_req.registration_payload.name.name.strip('\0')):
                     con.send(bytes(self.err_response.bytes_arr) + Server.END_OF_PACKET)
                     con.close()
@@ -239,9 +239,7 @@ class MessageUServer(Server):
                     threading.Thread(target=self.clients[client.client_id].serv).start()
                     print("SERVER!!!!")
             else:
-                if self.sql_db.id_exists(mup_req.msg.header.id.id) and \
-                        mup_req.msg.header.id.id in self.clients.keys() and \
-                        self.clients[mup_req.msg.header.id.id].connection_status not in [CONNECTION_STATUS.block]:
+                if self.sql_db.id_exists(mup_req.msg.header.id.id):
                     client = MessageUClient(client_id=MessageUProtocol.clientId(mup_req.msg.header.id.id), connection=con,
                                             connection_status=CONNECTION_STATUS.active, request=mup_req,
                                             request_status=REQ_STATUS.answer)

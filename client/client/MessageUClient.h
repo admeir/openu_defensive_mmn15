@@ -55,7 +55,7 @@ private:
     bool me_info_initilaized = false;
     unsigned char aes_key[AESWrapper::DEFAULT_KEYLENGTH];
         
-    uint8_t version = 1;
+    uint8_t version = 2;
     MeInfoFileRWIF me_info;
     AESWrapper aes_wrapper;
     RSAPrivateWrapper *rsapriv_wrapper;

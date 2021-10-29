@@ -240,28 +240,37 @@ OPERATION_STATUS MessageUClient::getClientsPublicKey() {
     if (receved_public_key.length() == 0) {
         return OPERATION_STATUS_FAIL;
     }
-    std::cout << "receved public key: " << receved_public_key << std::endl;
-    return OPERATION_STATUS_SUCCESS;
+        return OPERATION_STATUS_SUCCESS;
 }
 
 std::string MessageUClient::encryptedAESKey(std::string &id_str) {
-    std::string publicK = getFriendPubKey(id_str);
-    if (publicK.length() == 0) {
-        std::cout << "Error public key for client (" << id_str <<") - not exists" << std::endl;
-        return "";
+    try {
+        std::string publicK = getFriendPubKey(id_str);
+        if (publicK.length() == 0) {
+            std::cout << "Error public key for client (" << id_str <<") - not exists" << std::endl;
+            return "";
+        }
+        RSAPublicWrapper rsapub_wrapper(publicK);
+        return rsapub_wrapper.encrypt((char*)aes_key, (unsigned int)sizeof(aes_key));
+    } catch (std::exception& e) {
+        std::cerr << "Exception: " << e.what() << "\n";
     }
-    RSAPublicWrapper rsapub_wrapper(publicK);
-    return rsapub_wrapper.encrypt((char*)aes_key, (unsigned int)sizeof(aes_key));
+    return "";
 }
 
 std::string MessageUClient::encryptedMessage(std::string& id_str, std::string& message) {
-    std::string aes_key = getFriendAesKey(id_str);
-    if (aes_key.length() == 0) {
-        std::cout << "Error public aes for client (" << id_str << ") - not exists" << std::endl;
-        return "";
+    try {
+        std::string aes_key = getFriendAesKey(id_str);
+        if (aes_key.length() == 0) {
+            std::cout << "Error public aes for client (" << id_str << ") - not exists" << std::endl;
+            return "";
+        }
+        AESWrapper frined_aes_wrapper((unsigned char*)aes_key.c_str(), aes_key.length());
+        return frined_aes_wrapper.encrypt(message.c_str(), message.length());
+    } catch (std::exception& e) {
+        std::cerr << "Exception: " << e.what() << "\n";
     }
-    AESWrapper frined_aes_wrapper((unsigned char *)aes_key.c_str(), aes_key.length());
-    return frined_aes_wrapper.encrypt(message.c_str(), message.length());
+    return "";
 }
 
 OPERATION_STATUS MessageUClient::getMsgsClient() {
@@ -307,10 +316,10 @@ OPERATION_STATUS MessageUClient::getMsgsClient() {
             try {
                 file_path += "%TMP%/file" + (++file_id);
                 file_path += +".txt";
-                my_file.set_path("%TMP%/file.txt");
+                my_file.set_path(file_path.c_str());
                 msg_content = aes_wrapper.decrypt(p_content_str.c_str(), p_content_str.length());
                 my_file.writeFile(msg_content);
-                std::cout << msg_content << std::endl;
+                std::cout << file_path << std::endl;
             } catch (std::exception& e) {
                 std::cerr << "Exception: " << e.what() << "\n";
             }
@@ -342,12 +351,10 @@ OPERATION_STATUS MessageUClient::sendMsgClient(MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE
         case MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_GET_SYMETRIC_KEY:
             break;
         case MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_SEND_SYMETRIC_KEY:
-            hexify(aes_key, sizeof(aes_key));
             enc_content += encryptedAESKey(readen_id);
             if (enc_content.length() == 0) {
                 return OPERATION_STATUS_FAIL;
             }
-            hexify((unsigned char *)enc_content.c_str(), enc_content.length());
             break;
         case MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_SEND_MESSAGE_TEXT:
             std::cout << "please enter message: ";
@@ -361,7 +368,7 @@ OPERATION_STATUS MessageUClient::sendMsgClient(MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE
             std::cout << "please enter file path: ";
             std::getline(std::cin, content);
             my_file.set_path(content.c_str());
-            if (my_file.exists() && (FILE_ACCESS_STATUS_SUCCESS == my_file.openFile())) {
+            if (my_file.exists()) {
                 content = my_file.getData();
                 enc_content += encryptedMessage(readen_id, content);  
                 if (enc_content.length() == 0) {

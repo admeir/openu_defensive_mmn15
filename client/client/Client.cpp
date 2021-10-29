@@ -31,7 +31,6 @@ void Client::disconnect() {
 
 void Client::sendMsg(std::string &data) {
     try {
-        std::cout << data << std::endl;
         boost::asio::write(sock, boost::asio::buffer(data.c_str(), data.length()));
     }
     catch (std::exception& e) {

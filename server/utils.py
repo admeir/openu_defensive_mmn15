@@ -33,11 +33,9 @@ class IdSync:
         page = 0
         while self.free_message_ids[page] is not None and len(self.free_message_ids[page]) == 0:
             page += 1
-        print("page:", page)
         if self.create_free_message_ids_page(page):
             _id = self.free_message_ids[page][0]
             del self.free_message_ids[page][self.free_message_ids[page].index(_id)]
-            print("id:", _id)
             return ((page << 32) | _id)
         else:
             print("ERROR, there no left message ids")
@@ -70,7 +68,6 @@ class SQL:
     def write(self, cmd, *args):
         ret = None
         with self.connection:
-            print(cmd, args)
             ret = self.connection.execute(cmd, *args)
             self.connection.commit()
         return ret
@@ -78,7 +75,6 @@ class SQL:
     def read(self, cmd, *args):
         ret = []
         with self.connection:
-            print(cmd, args)
             ret = self.connection.execute(cmd, *args)
             ret = ret.fetchall()
         return list(ret)
