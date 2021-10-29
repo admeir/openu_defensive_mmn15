@@ -1,4 +1,3 @@
-import os
 import sqlite3
 import threading
 
@@ -145,14 +144,18 @@ class SQL:
         message_id = self.id_sync.allocate_message_id()
         if message_id is not None:
             cmd = "insert into messages (ID, ToClient, FromClient, Type, Content) values (?, ?, ?, ?, ?);"
-            self.write(cmd, (message_id, from_client, to_client, _type, content,))
+            self.write(cmd, (message_id, to_client, from_client, _type, content,))
         return message_id
 
     def get_messages(self, client_id):
-        return self.read("SELECT * FROM messages WHERE ToClient = ?;", (client_id,))
+        return [{"ID": m[0], "ToClient": m[1], "FromClient":m[2], "Type":m[3], "Content":m[4]}
+                    for m in self.read("SELECT * FROM messages WHERE ToClient = ?;", (client_id,))]
 
-import datetime
+    def delete_messages(self, msg_id):
+        return self.write("DELETE FROM messages WHERE ID = ?;", (msg_id,))
+
 if __name__ == '__main__':
+    import datetime
     sql_db = SQL()
     sql_db.add_client("10000000000000000000000000000000",
                       "sdflkdlsfl",
@@ -171,4 +174,5 @@ if __name__ == '__main__':
     print(sql_db.get_last_id('clients'))
     print(sql_db.get_client(sql_db.get_last_id('clients')))
     print(sql_db.get_clients())
-    print(sql_db.get_messages("30000000000000000000000000000000"))
+    print(sql_db.get_messages("01000000000000000000000000000000"))
+

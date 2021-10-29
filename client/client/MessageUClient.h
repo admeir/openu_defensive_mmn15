@@ -12,6 +12,7 @@ std::cout << \
 "50) Send a text message\n" << \
 "51) Send a request for symmetric key\n" << \
 "52) Send your symmetric key\n" << \
+"53) Send file\n" << \
 "0) E\n" << \
 std::endl; \
 } while(0)
@@ -19,7 +20,9 @@ std::endl; \
 class MessageUClient : public Client {
 public:
     MessageUClient(boost::asio::io_context& io_context);
-    virtual ~MessageUClient() {};
+    virtual ~MessageUClient() {
+        delete rsapriv_wrapper;
+    };
     void connect();
     void cli();
 
@@ -40,13 +43,12 @@ private:
     OPERATION_STATUS getClientsPublicKey(clientId &id, clientPublicKey *publicKey);
     OPERATION_STATUS getClientsPublicKey();
     OPERATION_STATUS sendMsgClient(MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE type);
-    OPERATION_STATUS saveFriendPubKey(clientId& id,  clientPublicKey& publicKey);
-    OPERATION_STATUS getFriendPubKey(clientId& id, clientPublicKey* publicKey);
+    OPERATION_STATUS saveFriendPubKey(std::string &id, std::string & publicKey);
+    std::string getFriendPubKey(std::string &id);
     std::string encryptedAESKey(std::string& id_str);
     std::string encryptedMessage(std::string& id_str, std::string& message);
-    std::string decryptedMessage(std::string& id_str, std::string& message);
-    OPERATION_STATUS saveFriendAesKey(clientId& id, std::string &aesKey);
-    OPERATION_STATUS getFriendAesKey(clientId& id, std::string* aesKey);
+    OPERATION_STATUS saveFriendAesKey(std::string &id, std::string &aesKey);
+    std::string getFriendAesKey(std::string &id);
     OPERATION_STATUS getMsgsClient();
 
     bool got_exit = false;
@@ -56,14 +58,14 @@ private:
     uint8_t version = 1;
     MeInfoFileRWIF me_info;
     AESWrapper aes_wrapper;
-    //RSAPublicWrapper rsapub_wrapper;
-    RSAPrivateWrapper rsapriv_wrapper;
+    RSAPrivateWrapper *rsapriv_wrapper;
     std::string pub_key;
     std::string prv_key;
     std::string base64key;
     MUPReqMessage req;
     MUPRespMessage resp;
-    std::map<char *, clientPublicKey> frind_pub_keys;
-    std::map<char *, std::string> frind_aes_keys;
+    std::map<std::string, std::string> frind_pub_keys;
+    std::map<std::string, std::string> frind_aes_keys;
+    int file_id = 0;
 };
 

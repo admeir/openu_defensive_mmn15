@@ -21,14 +21,11 @@ MessageUClient::MessageUClient(boost::asio::io_context& io_context) :
     me_info(),
     aes_wrapper(AESWrapper::GenerateKey(aes_key, AESWrapper::DEFAULT_KEYLENGTH),
                                         AESWrapper::DEFAULT_KEYLENGTH) {
-
     if (me_info.exists()) {
         std::string key = me_info.getPrivateKey();
         initKeys(key);
         initReqHeader();
     }
-    //RSAPublicWrapper sapub_wrapper((std::string const)pub_key);
-    
 }
 
 void MessageUClient::initReqHeader() {
@@ -39,15 +36,16 @@ void MessageUClient::initReqHeader() {
 
 OPERATION_STATUS MessageUClient::initKeys(std::string &encoded_key) {
     prv_key = Base64Wrapper::decode(encoded_key);
-    RSAPrivateWrapper rsapriv_wrapper(prv_key);
-    pub_key = rsapriv_wrapper.getPublicKey();
+    RSAPrivateWrapper *x = new RSAPrivateWrapper(prv_key);
+    rsapriv_wrapper = x;
+    pub_key = rsapriv_wrapper->getPublicKey();
     return OPERATION_STATUS_SUCCESS;
 }
 
 OPERATION_STATUS MessageUClient::initKeys() {
-    RSAPrivateWrapper rsapriv_wrapper;
-    pub_key = rsapriv_wrapper.getPublicKey();
-    prv_key = rsapriv_wrapper.getPrivateKey();
+    rsapriv_wrapper = new RSAPrivateWrapper();
+    pub_key = rsapriv_wrapper->getPublicKey();
+    prv_key = rsapriv_wrapper->getPrivateKey();
     std::string encoded_key = Base64Wrapper::encode(prv_key);
     return me_info.setPrivateKey(encoded_key);
 }
@@ -90,6 +88,7 @@ OPERATION_STATUS MessageUClient::checkCode(uint16_t code) {
     case MUP_RESP_MESSAGE_CODE_CLIENTS_LIST:
     case MUP_RESP_MESSAGE_CODE_GET_PUBLIC_KEY:
     case MUP_RESP_MESSAGE_CODE_MESSAGE_SENT:
+    case MUP_RESP_MESSAGE_COD_TYPE_GET_MESSAGES:
         return OPERATION_STATUS_SUCCESS;
         break;
     default:
@@ -105,7 +104,7 @@ void MessageUClient::cli() {
         std::getline(std::cin, cli_buffer);
 
         if (isNumber(cli_buffer.substr(0, CLI_CMD_MAX_LEN))) {
-            execCMD(atoi(cli_buffer.substr(0, CLI_CMD_MAX_LEN).c_str()));
+            execCMD((unsigned short int)atoi(cli_buffer.substr(0, CLI_CMD_MAX_LEN).c_str()));
         } else {
             std::cerr << "ERROR: Wrong cmd: " << cli_buffer.substr(0, CLI_CMD_MAX_LEN) \
                 << "," << std::endl <<  "please follow instuction!" << std::endl;
@@ -196,38 +195,36 @@ OPERATION_STATUS MessageUClient::getClientsPublicKey(clientId &id, clientPublicK
     return OPERATION_STATUS_SUCCESS;
 }
 
-OPERATION_STATUS MessageUClient::saveFriendPubKey(clientId& id,  clientPublicKey& publicKey) {
-   if (frind_pub_keys.find(id.id) == frind_pub_keys.end()) {
-       frind_pub_keys.insert(std::pair<char *, clientPublicKey>(id.id, publicKey));
+OPERATION_STATUS MessageUClient::saveFriendPubKey(std::string &id, std::string& pub) {
+   if (frind_pub_keys.find(id) == frind_pub_keys.end()) {
+       frind_pub_keys.insert(std::pair<std::string, std::string>(id, pub));
    }
    return OPERATION_STATUS_SUCCESS;
 }
 
-OPERATION_STATUS MessageUClient::getFriendPubKey(clientId& id, clientPublicKey *publicKey) {
-    if (frind_pub_keys.find(id.id) == frind_pub_keys.end()) {
-        return OPERATION_STATUS_FAIL;
+std::string MessageUClient::getFriendPubKey(std::string& id) {
+    if (frind_pub_keys.find(id) == frind_pub_keys.end()) {
+        return "";
     }
     else {
-        SET_MEM(publicKey->public_key, frind_pub_keys[id.id].public_key);
+        return frind_pub_keys[id];
+    }
+}
+
+OPERATION_STATUS MessageUClient::saveFriendAesKey(std::string &id, std::string &aes) {
+    if (frind_aes_keys.find(id) == frind_aes_keys.end()) {
+        frind_aes_keys.insert(std::pair<std::string, std::string>(id, aes));
     }
     return OPERATION_STATUS_SUCCESS;
 }
 
-OPERATION_STATUS MessageUClient::saveFriendAesKey(clientId &id, std::string &aesKey) {
-    if (frind_aes_keys.find(id.id) == frind_aes_keys.end()) {
-        frind_aes_keys.insert(std::pair<char *, std::string>(id.id, aesKey));
-    }
-    return OPERATION_STATUS_SUCCESS;
-}
-
-OPERATION_STATUS MessageUClient::getFriendAesKey(clientId& id, std::string *aesKey) {
-    if (frind_aes_keys.find(id.id) == frind_aes_keys.end()) {
-        return OPERATION_STATUS_FAIL;
+std::string MessageUClient::getFriendAesKey(std::string &id) {
+    if (frind_aes_keys.find(id) == frind_aes_keys.end()) {
+        return "";
     }
     else {
-        *aesKey = frind_aes_keys[id.id];
+        return frind_aes_keys[id];
     }
-    return OPERATION_STATUS_SUCCESS;
 }
 
 OPERATION_STATUS MessageUClient::getClientsPublicKey() {
@@ -239,41 +236,36 @@ OPERATION_STATUS MessageUClient::getClientsPublicKey() {
     SET_MEM(id.id, readen_id.c_str());
     RETURN_ON_FAIL(getClientsPublicKey(id, &publicKey));
     std::string receved_public_key(publicKey.public_key, sizeof(publicKey.public_key));
+    saveFriendPubKey(readen_id, receved_public_key);
+    if (receved_public_key.length() == 0) {
+        return OPERATION_STATUS_FAIL;
+    }
     std::cout << "receved public key: " << receved_public_key << std::endl;
     return OPERATION_STATUS_SUCCESS;
 }
 
 std::string MessageUClient::encryptedAESKey(std::string &id_str) {
-    clientPublicKey publicKey;
-    clientId id;
-    SET_MEM(id.id, id_str.c_str());
-    getFriendPubKey(id, &publicKey);
-    RSAPublicWrapper rsapub_wrapper(publicKey.public_key, sizeof(publicKey.public_key));
-    return rsapub_wrapper.encrypt((const char*)aes_key, (unsigned int)sizeof(aes_key));
+    std::string publicK = getFriendPubKey(id_str);
+    if (publicK.length() == 0) {
+        std::cout << "Error public key for client (" << id_str <<") - not exists" << std::endl;
+        return "";
+    }
+    RSAPublicWrapper rsapub_wrapper(publicK);
+    return rsapub_wrapper.encrypt((char*)aes_key, (unsigned int)sizeof(aes_key));
 }
 
 std::string MessageUClient::encryptedMessage(std::string& id_str, std::string& message) {
-    std::string aes_key;
-    clientId id;
-    SET_MEM(id.id, id_str.c_str());
-    getFriendAesKey(id, &aes_key);
+    std::string aes_key = getFriendAesKey(id_str);
+    if (aes_key.length() == 0) {
+        std::cout << "Error public aes for client (" << id_str << ") - not exists" << std::endl;
+        return "";
+    }
     AESWrapper frined_aes_wrapper((unsigned char *)aes_key.c_str(), aes_key.length());
     return frined_aes_wrapper.encrypt(message.c_str(), message.length());
 }
 
-std::string MessageUClient::decryptedMessage(std::string& id_str, std::string& message) {
-    std::string aes_key;
-    clientId id;
-    SET_MEM(id.id, id_str.c_str());
-    if (OPERATION_STATUS_FAIL == getFriendAesKey(id, &aes_key)) {
-        std::cout << "can’t decrypt message" << std::endl;
-    }
-    AESWrapper frined_aes_wrapper((unsigned char*)aes_key.c_str(), aes_key.length());
-    return frined_aes_wrapper.decrypt(message.c_str(), message.length());
-}
-
 OPERATION_STATUS MessageUClient::getMsgsClient() {
-    int mem_ptr = 0;
+    unsigned int mem_ptr = 0;
     boost::asio::streambuf buf;
     MUPRespGotMessagePayload* msg_payload;
     req.header.payload_size = 0;
@@ -285,10 +277,13 @@ OPERATION_STATUS MessageUClient::getMsgsClient() {
     RETURN_ON_FAIL(reciveRespPayload(buf, payloads));
 
     while (mem_ptr < resp.header.payload_size) {
+        FileRWIF my_file;
+        std::string file_path;
         std::string msg_content;
         msg_payload = (MUPRespGotMessagePayload*)&payloads[mem_ptr];
         std::string from_id(msg_payload->id.id, sizeof(msg_payload->id));
-        std::string msg_content_str(msg_payload->content, msg_payload->message_size);
+        msg_payload->content = &payloads[mem_ptr + sizeof(MUPRespGotMessagePayload)];
+        std::string p_content_str(msg_payload->content, msg_payload->message_size);
         std::cout << "From: " << from_id << std::endl;
         switch (msg_payload->message_type)
         {
@@ -296,18 +291,29 @@ OPERATION_STATUS MessageUClient::getMsgsClient() {
             std::cout << "Request symmetric key" << std::endl;
             break;
         case MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_SEND_SYMETRIC_KEY:
-            msg_content = rsapriv_wrapper.decrypt(msg_payload->content, msg_payload->message_size);
-            saveFriendAesKey(msg_payload->id, msg_content);
+            msg_content = rsapriv_wrapper->decrypt(p_content_str);
+            saveFriendAesKey(from_id, msg_content);
             std::cout << "symmetric key received" << std::endl;
             break;
         case MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_SEND_MESSAGE_TEXT:
-            msg_content = decryptedMessage(from_id, msg_content_str);
-            std::cout << msg_content << std::endl;
+            try {
+                msg_content = aes_wrapper.decrypt(p_content_str.c_str(), p_content_str.length());
+                std::cout << msg_content << std::endl;
+            } catch (std::exception& e) {
+                std::cerr << "Exception: " << e.what() << "\n";
+            }
             break;
         case MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_SEND_FILE:
-            //std::cout << "please enter file path: ";
-            //std::getline(std::cin, content);
-            //enc_content += encryptedMessage(readen_id, content);
+            try {
+                file_path += "%TMP%/file" + (++file_id);
+                file_path += +".txt";
+                my_file.set_path("%TMP%/file.txt");
+                msg_content = aes_wrapper.decrypt(p_content_str.c_str(), p_content_str.length());
+                my_file.writeFile(msg_content);
+                std::cout << msg_content << std::endl;
+            } catch (std::exception& e) {
+                std::cerr << "Exception: " << e.what() << "\n";
+            }
             break;
         default:
             std::cout << "bad MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE " << std::endl;
@@ -336,35 +342,49 @@ OPERATION_STATUS MessageUClient::sendMsgClient(MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE
         case MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_GET_SYMETRIC_KEY:
             break;
         case MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_SEND_SYMETRIC_KEY:
+            hexify(aes_key, sizeof(aes_key));
             enc_content += encryptedAESKey(readen_id);
+            if (enc_content.length() == 0) {
+                return OPERATION_STATUS_FAIL;
+            }
+            hexify((unsigned char *)enc_content.c_str(), enc_content.length());
             break;
         case MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_SEND_MESSAGE_TEXT:
             std::cout << "please enter message: ";
             std::getline(std::cin, content);
             enc_content += encryptedMessage(readen_id, content);
+            if (enc_content.length() == 0) {
+                return OPERATION_STATUS_FAIL;
+            }
             break;
         case MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_SEND_FILE:
             std::cout << "please enter file path: ";
             std::getline(std::cin, content);
-            FileRWIF my_file(content.c_str());
-            if ((FILE_ACCESS_STATUS_SUCCESS == my_file.openFile()) && (my_file.exists())) {
+            my_file.set_path(content.c_str());
+            if (my_file.exists() && (FILE_ACCESS_STATUS_SUCCESS == my_file.openFile())) {
                 content = my_file.getData();
-                enc_content += encryptedMessage(readen_id, content);
+                enc_content += encryptedMessage(readen_id, content);  
+                if (enc_content.length() == 0) {
+                    return OPERATION_STATUS_FAIL;
+                }
+            } else {
+                std::cout << "file not found" << std::endl;
+                return OPERATION_STATUS_FAIL;
             }
-            
             break;
         default:
             std::cout << "bad MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE " << std::endl;
             break;
     }
 
-    char *req_payload = new char[sizeof(MUPReqSendMessagePayload) + enc_content.size()];
+    char *req_payload = new char[sizeof(MUPReqSendMessagePayload) + enc_content.length()];
     MUPReqSendMessagePayload* req_payload_ptr = (MUPReqSendMessagePayload*)req_payload;
     SET_MEM(req_payload_ptr->id.id, readen_id.c_str());
-    req_payload_ptr->content_size = enc_content.size();
+    req_payload_ptr->content_size = enc_content.length();
     req_payload_ptr->message_type = type;
-    memcpy(req_payload_ptr->message_content, enc_content.c_str(), ((MUPReqSendMessagePayload*)req_payload)->content_size);
-    req.header.payload_size = sizeof(MUPReqSendMessagePayload) + enc_content.size();
+    req_payload_ptr->message_content = &req_payload[sizeof(MUPReqSendMessagePayload)];
+    memcpy(req_payload_ptr->message_content, enc_content.c_str(), req_payload_ptr->content_size);
+    req.header.payload_size = sizeof(MUPReqSendMessagePayload) + enc_content.length();
     req.header.code = MUP_REQ_MESSAGE_COD_TYPE_SEND_MESSAGE;
     req.payload = req_payload;
     sendReq();
@@ -381,7 +401,6 @@ OPERATION_STATUS MessageUClient::sendMsgClient(MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE
 }
 
 OPERATION_STATUS MessageUClient::execCMD(unsigned short int cmd) {
-    connect();
     switch (cmd) {
     case 10:
         regitrete();
@@ -393,7 +412,7 @@ OPERATION_STATUS MessageUClient::execCMD(unsigned short int cmd) {
         getClientsPublicKey();
         break;
     case 40:
-
+        getMsgsClient();
         break;
     case 50:
         sendMsgClient(MUP_REQ_SEND_MESSAGE_PAYLOAD_TYPE_SEND_MESSAGE_TEXT);
@@ -414,6 +433,5 @@ OPERATION_STATUS MessageUClient::execCMD(unsigned short int cmd) {
         std::cerr << "ERROR: Wrong cmd: " << cmd \
             << "," << std::endl << "please follow instuction!" << std::endl;
     }
-    disconnect();
     return OPERATION_STATUS_SUCCESS;
 }

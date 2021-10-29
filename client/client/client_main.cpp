@@ -17,30 +17,17 @@ using boost::asio::ip::tcp;
 
 int main(int argc, char* argv[])
 {
+    boost::asio::io_context io_context;
+    MessageUClient client(io_context);
     try
     {
-        boost::asio::io_context io_context;
-        MessageUClient client(io_context);
+        client.connect();
         client.cli();
-            /*
-        char reply[MAX_LENGTH];
-        size_t reply_length = client.getMsg(reply);
-        std::cout << "got : ";
-        std::cout.write(reply, reply_length);
-        std::cout << "\n";
-
-        std::cout << "Enter message: ";
-        char request[MAX_LENGTH];
-        std::cin.getline(request, MAX_LENGTH);
-        size_t request_length = std::strlen(request);
-        client.sendMsg(request, request_length);
-
-        */
-
-
+        client.disconnect();
     }
     catch (std::exception& e)
     {
+        client.disconnect();
         std::cerr << "Exception: " << e.what() << "\n";
     }
 

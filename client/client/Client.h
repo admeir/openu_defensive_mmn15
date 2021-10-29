@@ -8,9 +8,9 @@ class Client {
 public:
     Client(boost::asio::io_context& io_context);
     virtual ~Client();
-protected:
     void connect(const char* ip, const char* port);
     void disconnect();
+protected:
     void sendMsg(std::string& data);
     size_t getMsg(boost::asio::streambuf& buf);
     int buf_len;

@@ -10,7 +10,6 @@ std::string ServerInfoFileRWIF::getIP() {
 };
 
 std::string ServerInfoFileRWIF::getPort() {
-    std::cout << port << std::endl;
     return port;
 };
 

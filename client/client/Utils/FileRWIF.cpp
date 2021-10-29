@@ -8,6 +8,11 @@ FileRWIF::~FileRWIF() {
     closeFile();
 }
 
+void FileRWIF::set_path(const char* path) {
+    file_path.clear();
+    file_path += path;
+}
+
 bool FileRWIF::exists() {
     FILE_ACCESS_STATUS status = openFile();
     if (FILE_ACCESS_STATUS_SUCCESS == status) {

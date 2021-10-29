@@ -36,5 +36,15 @@ class Server:
         return con, addr
 
     def recv(self, con):
-        return con.recv(Server.BUFFER_SIZE)
+        try:
+            return con.recv(Server.BUFFER_SIZE)
+
+        except MemoryError:
+            pass
+        except ConnectionResetError:
+            pass
+        except ConnectionAbortedError:
+            pass
+
+
 
