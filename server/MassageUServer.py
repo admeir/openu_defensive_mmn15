@@ -41,7 +41,6 @@ class MessageUClient:
 
     def serv(self):
         self.sql_db = SQL()
-        print(self.client_id)
         while self.connection_status == CONNECTION_STATUS.active:
             if self.request_status == REQ_STATUS.recv:
                 self.recv()
@@ -57,7 +56,7 @@ class MessageUClient:
 
     def check(self):
         diff_in_seconds = (datetime.datetime.utcnow() - self.last_seen).total_seconds()
-        if diff_in_seconds > 5:
+        if diff_in_seconds < 5:
             print("Error, we are under attack!!!!")
             self.connection_status = CONNECTION_STATUS.block
 
@@ -175,7 +174,6 @@ class MessageUClient:
         if not type(self.payload) == type(bytes()):
             self.payload = bytes(self.payload.bytes_arr)
         self.response.payload_size = len(self.payload)
-        print("send :", bytes(self.response.bytes_arr) + self.payload + Server.END_OF_PACKET)
         self.connection.send(bytes(self.response.bytes_arr) + self.payload + Server.END_OF_PACKET)
         self.request_status = REQ_STATUS.recv
 
@@ -210,7 +208,6 @@ class MessageUServer(Server):
                 self.clients[client_id].connection_status = CONNECTION_STATUS.end
 
     def recv(self, con):
-        print("---------------------------------------------------------------")
         # self.disconnect_long_last_seen()
         data = super(MessageUServer, self).recv(con)
         print(data)
@@ -237,7 +234,6 @@ class MessageUServer(Server):
                     self.clients[client.client_id] = client
                     self.clients[client.client_id].add_client(self.sql_db)
                     threading.Thread(target=self.clients[client.client_id].serv).start()
-                    print("SERVER!!!!")
             else:
                 if self.sql_db.id_exists(mup_req.msg.header.id.id):
                     client = MessageUClient(client_id=MessageUProtocol.clientId(mup_req.msg.header.id.id), connection=con,
@@ -245,7 +241,6 @@ class MessageUServer(Server):
                                             request_status=REQ_STATUS.answer)
                     self.clients[client.client_id] = client
                     threading.Thread(target=self.clients[client.client_id].serv).start()
-                    print("SERVER!!!!")
                 else:
                     con.send(bytes(self.err_response.bytes_arr) + Server.END_OF_PACKET)
                     con.close()
