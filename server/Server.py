@@ -40,7 +40,6 @@ class Server:
             d = con.recv(Server.BUFFER_SIZE)
             while len(d) == Server.BUFFER_SIZE:
                 d += con.recv(Server.BUFFER_SIZE)
-            print(d)
             return d
         except MemoryError:
             pass

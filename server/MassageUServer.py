@@ -210,7 +210,6 @@ class MessageUServer(Server):
     def recv(self, con):
         # self.disconnect_long_last_seen()
         data = super(MessageUServer, self).recv(con)
-        print(data)
         if len(data) <= 0:
             print("client disconnected")
             return ''
