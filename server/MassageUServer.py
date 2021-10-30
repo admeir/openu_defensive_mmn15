@@ -5,7 +5,9 @@ import threading
 from server.utils import SQL
 from server.Server import Server
 
-import protocol.protocol_boost_dll.Debug.MessageUProtocol as MessageUProtocol
+# if you want to run in debug mode uncomment next raw and comment the release raw
+# import protocol.protocol_boost_dll.Debug.MessageUProtocol as MessageUProtocol
+import protocol.protocol_boost_dll.Release.MessageUProtocol as MessageUProtocol
 
 class REQ_STATUS(enum.Enum):
     recv = 0
